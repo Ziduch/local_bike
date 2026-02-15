@@ -1,0 +1,194 @@
+version: 2
+
+models:
+  - name: bronze_brands
+    description: Table de référence des marques (staging/bronze).
+    columns:
+      - name: brand_id
+        tests: [not_null, unique]
+      - name: brand_name
+        tests: [not_null]
+
+  - name: bronze_categories
+    description: Table de référence des catégories produits (staging/bronze).
+    columns:
+      - name: category_id
+        tests: [not_null, unique]
+      - name: category_name
+        tests: [not_null]
+
+  - name: bronze_products
+    description: Catalogue produits (staging/bronze).
+    columns:
+      - name: product_id
+        tests: [not_null, unique]
+      - name: product_name
+        tests: [not_null]
+      - name: brand_id
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('bronze_brands')
+                field: brand_id
+      - name: category_id
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('bronze_categories')
+                field: category_id
+      - name: model_year
+        tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 1900
+                max_value: 2100
+      - name: list_price
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+             arguments:
+               min_value: 0
+
+  - name: bronze_customers
+    description: Référentiel clients (staging/bronze).
+    columns:
+      - name: customer_id
+        tests: [not_null, unique]
+      - name: first_name
+        tests: [not_null]
+      - name: last_name
+        tests: [not_null]
+      - name: email
+        tests: [not_null]
+
+  - name: bronze_stores
+    description: Référentiel magasins (staging/bronze).
+    columns:
+      - name: store_id
+        tests: [not_null, unique]
+      - name: store_name
+        tests: [not_null]
+      - name: email
+        tests: [not_null]
+
+  - name: bronze_staffs
+    description: Référentiel employés/vendeurs (staging/bronze).
+    columns:
+      - name: staff_id
+        tests: [not_null, unique]
+      - name: store_id
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('bronze_stores')
+                field: store_id
+      - name: active
+        tests:
+          - dbt_utils.accepted_range:
+             arguments:
+               min_value: 0
+               max_value: 1
+      - name: email
+        tests: [not_null]
+
+  - name: bronze_orders
+    description: Commandes (staging/bronze). 1 ligne = 1 commande.
+    columns:
+      - name: order_id
+        tests: [not_null, unique]
+      - name: customer_id
+        tests:
+          - not_null
+          - relationships:
+             arguments:
+               to: ref('bronze_customers')
+               field: customer_id
+      - name: store_id
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('bronze_stores')
+                field: store_id
+      - name: staff_id
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('bronze_staffs')
+                field: staff_id
+      - name: order_status
+        tests: [not_null]
+      - name: order_date
+        tests: [not_null]
+      - name: required_date
+        tests: [not_null]
+
+  - name: bronze_order_items
+    description: Lignes de commande (staging/bronze). 1 ligne = 1 item de commande.
+    columns:
+      - name: order_item_id
+        tests: [not_null, unique]
+      - name: order_id
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('bronze_orders')
+                field: order_id
+      - name: product_id
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('bronze_products')
+                field: product_id
+      - name: quantity
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+             arguments:
+               min_value: 1
+      - name: list_price
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+             arguments:
+               min_value: 0
+      - name: discount
+        tests:
+          - dbt_utils.accepted_range:
+             arguments:
+               min_value: 0
+               max_value: 1
+
+  - name: bronze_stocks
+    description: Stock courant par magasin et produit (staging/bronze).
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+         arguments: 
+          combination_of_columns: [store_id, product_id]
+    columns:
+      - name: store_id
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('bronze_stores')
+                field: store_id
+      - name: product_id
+        tests:
+          - not_null
+          - relationships:
+              arguments:  
+                to: ref('bronze_products')
+                field: product_id
+      - name: quantity
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+             arguments:
+              min_value: 0

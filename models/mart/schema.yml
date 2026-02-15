@@ -1,0 +1,252 @@
+version: 2
+
+models:
+  - name: mrt_local_bike__orders_daily_store
+    description: >
+      Rapport journalier par magasin. 1 ligne = 1 jour x 1 magasin.
+      Sert de base au pilotage des ventes (CA, commandes, panier moyen, volume, discount).
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [report_date, store_id]
+    columns:
+      - name: report_date
+        description: Date du reporting (jour).
+        tests: [not_null]
+      - name: store_id
+        description: Identifiant du magasin.
+        tests: [not_null]
+      - name: total_orders
+        description: Nombre de commandes sur la journée.
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+             arguments:
+               min_value: 0
+      - name: total_revenue
+        description: Chiffre d'affaires total sur la journée.
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+             arguments: 
+               min_value: 0
+      - name: avg_order_value
+        description: Panier moyen (CA moyen par commande) sur la journée.
+        tests:
+          - dbt_utils.accepted_range:
+             arguments:
+               min_value: 0
+      - name: total_items
+        description: Nombre total d'articles vendus sur la journée.
+        tests:
+          - dbt_utils.accepted_range:
+             arguments:
+               min_value: 0
+      - name: avg_distinct_products
+        description: Nombre moyen de produits distincts par commande.
+        tests:
+          - dbt_utils.accepted_range:
+             arguments:
+               min_value: 0
+      - name: avg_discount
+        description: Remise moyenne observée sur les lignes rattachées aux commandes du jour.
+        tests:
+          - dbt_utils.accepted_range:
+             arguments:
+               min_value: 0
+               max_value: 1
+
+  - name: mrt_local_bike__orders_monthly_store
+    description: >
+      Rapport mensuel par magasin. 1 ligne = 1 mois x 1 magasin.
+      Utile pour analyser la saisonnalité et suivre la performance mensuelle.
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [report_month, store_id]
+    columns:
+      - name: report_month
+        description: Mois du reporting (date tronquée au mois).
+        tests: [not_null]
+      - name: store_id
+        description: Identifiant du magasin.
+        tests: [not_null]
+      - name: total_orders
+        description: Nombre de commandes sur le mois.
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+             arguments:
+               min_value: 0
+      - name: total_revenue
+        description: Chiffre d'affaires total sur le mois.
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+             arguments:
+               min_value: 0
+      - name: avg_order_value
+        description: Panier moyen (CA moyen par commande) sur le mois.
+        tests:
+          - dbt_utils.accepted_range:
+             arguments:
+               min_value: 0
+
+  - name: mrt_local_bike__customer_value
+    description: >
+      Vue client (1 ligne = 1 client) incluant volume d'achat, dépense totale et récence.
+      Utilisée pour identifier les clients à forte valeur et les clients à réactiver.
+    columns:
+      - name: customer_id
+        description: Identifiant unique du client.
+        tests: [not_null, unique]
+      - name: customer_city
+        description: Ville du client.
+      - name: customer_state
+        description: État du client.
+      - name: total_orders
+        description: Nombre total de commandes du client.
+        tests:
+          - dbt_utils.accepted_range:
+             arguments:
+               min_value: 0
+      - name: total_amount_spent
+        description: Dépense totale du client (CA cumulé).
+        tests:
+          - dbt_utils.accepted_range:
+             arguments:
+               min_value: 0
+      - name: total_items
+        description: Nombre total d'articles achetés par le client.
+        tests:
+          - dbt_utils.accepted_range:
+             arguments:
+               min_value: 0
+      - name: total_distinct_products
+        description: Nombre total de produits distincts achetés par le client.
+        tests:
+          - dbt_utils.accepted_range:
+             arguments:
+               min_value: 0
+      - name: first_order_date
+        description: Date de première commande.
+      - name: last_order_date
+        description: Date de dernière commande.
+      - name: days_since_last_order
+        description: Nombre de jours depuis la dernière commande (récence).
+        tests:
+          - dbt_utils.accepted_range:
+             arguments:
+               min_value: 0
+
+  - name: mrt_local_bike__product_ranking
+    description: >
+      Classement produits (1 ligne = 1 produit) basé sur revenus et volumes.
+      Permet d'identifier les best-sellers et les produits à faible performance.
+    columns:
+      - name: product_id
+        description: Identifiant unique produit.
+        tests: [not_null, unique]
+      - name: total_units
+        description: Unités vendues (volume) sur la période couverte par le dataset.
+        tests:
+          - dbt_utils.accepted_range:
+             arguments:
+               min_value: 0
+      - name: total_revenue
+        description: Chiffre d'affaires généré par le produit.
+        tests:
+          - dbt_utils.accepted_range:
+             arguments:
+               min_value: 0
+      - name: revenue_rank
+        description: Rang du produit par revenu (1 = meilleur).
+        tests:
+          - dbt_utils.accepted_range:
+             arguments:
+               min_value: 1
+      - name: units_rank
+        description: Rang du produit par volume (1 = meilleur).
+        tests:
+          - dbt_utils.accepted_range:
+             arguments:
+               min_value: 1
+
+  - name: mrt_local_bike__staff_ranking
+    description: >
+      Classement vendeurs (1 ligne = 1 staff) basé sur les ventes.
+      Sert à suivre la performance commerciale individuelle.
+    columns:
+      - name: staff_id
+        description: Identifiant unique du vendeur.
+        tests: [not_null, unique]
+      - name: total_orders
+        description: Nombre total de commandes associées au vendeur.
+        tests:
+          - dbt_utils.accepted_range:
+             arguments:
+               min_value: 0
+      - name: total_sales
+        description: CA total généré par le vendeur.
+        tests:
+          - dbt_utils.accepted_range:
+             arguments:
+               min_value: 0
+      - name: avg_order_value
+        description: Panier moyen du vendeur (total_sales / total_orders).
+        tests:
+          - dbt_utils.accepted_range:
+             arguments:
+               min_value: 0
+      - name: sales_rank
+        description: Rang du vendeur par CA (1 = meilleur).
+        tests:
+          - dbt_utils.accepted_range:
+             arguments:
+               min_value: 1
+
+  - name: mrt_local_bike__stock_alerts
+    description: >
+      Alertes stock (1 ligne = 1 magasin x 1 produit) basées sur stock actuel et ventes observées.
+      Permet d'identifier ruptures et produits sans ventes.
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [store_id, product_id]
+    columns:
+      - name: store_id
+        description: Identifiant magasin.
+        tests: [not_null]
+      - name: product_id
+        description: Identifiant produit.
+        tests: [not_null]
+      - name: stock_quantity
+        description: Stock actuel disponible.
+        tests:
+          - dbt_utils.accepted_range:
+             arguments:
+               min_value: 0
+      - name: units_sold
+        description: Quantité vendue observée sur le dataset.
+        tests:
+          - dbt_utils.accepted_range:
+             arguments:
+               min_value: 0
+      - name: revenue
+        description: CA associé aux ventes observées.
+        tests:
+          - dbt_utils.accepted_range:
+             arguments:
+               min_value: 0
+      - name: stock_sales_status
+        description: Statut synthétique (OUT_OF_STOCK / NO_SALES / OK).
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['OUT_OF_STOCK', 'NO_SALES', 'OK']
+      - name: is_stockout_flag
+        description: 1 si rupture détectée (stock=0 et ventes>0), sinon 0.
+        tests:
+          - accepted_values:
+              arguments:
+                values: [0, 1]

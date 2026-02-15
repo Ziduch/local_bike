@@ -1,0 +1,324 @@
+version: 2
+
+models:
+  - name: int_local_bike__order_items_enriched
+    description: >
+      Lignes de commande enrichies (1 ligne = 1 item de commande).
+      Contient le calcul du CA ligne (line_amount) et des attributs produit utiles pour les analyses.
+      Source pour les agrégations commande et les analyses produit/magasin.
+    columns:
+      - name: order_item_id
+        description: Identifiant technique unique de ligne (order_id + item_id).
+        tests: [not_null, unique]
+      - name: order_id
+        description: Identifiant de commande.
+        tests: [not_null]
+      - name: item_id
+        description: Numéro de ligne dans la commande.
+        tests: [not_null]
+      - name: product_id
+        description: Identifiant produit.
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('bronze_products')
+                field: product_id
+      - name: quantity
+        description: Quantité vendue sur la ligne.
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+             arguments:
+               min_value: 1
+      - name: list_price
+        description: Prix unitaire au moment de la vente.
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+             arguments:
+              min_value: 0
+      - name: discount
+        description: Remise appliquée (0 à 1).
+        tests:
+          - dbt_utils.accepted_range:
+             arguments:
+               min_value: 0
+               max_value: 1
+      - name: line_amount
+        description: Montant de la ligne (quantity * list_price * (1 - discount)).
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+             arguments:
+               min_value: 0
+      - name: brand_id
+        description: Marque du produit.
+      - name: category_id
+        description: Catégorie du produit.
+      - name: model_year
+        description: Année modèle du produit.
+
+  - name: int_local_bike__order_summary
+    description: >
+      Résumé des commandes (1 ligne = 1 commande).
+      Contient les KPI nécessaires au pilotage: total_order_amount, total_items,
+      total_distinct_products, avg_discount, et les dimensions (customer/store/staff) de la commande.
+      Modèle central pour les marts de ventes.
+    columns:
+      - name: order_id
+        description: Identifiant unique de commande.
+        tests: [not_null, unique]
+      - name: customer_id
+        description: Identifiant client.
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('bronze_customers')
+                field: customer_id
+      - name: store_id
+        description: Identifiant magasin.
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('bronze_stores')
+                field: store_id
+      - name: staff_id
+        description: Identifiant vendeur.
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('bronze_staffs')
+                field: staff_id
+      - name: order_status
+        description: Statut de la commande (code).
+        tests: [not_null]
+      - name: order_date
+        description: Date de commande.
+        tests: [not_null]
+      - name: required_date
+        description: Date requise.
+      - name: shipped_date
+        description: Date d'expédition (peut être nulle si non expédiée).
+      - name: total_order_amount
+        description: CA total de la commande.
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+             arguments:
+               min_value: 0
+      - name: total_items
+        description: Total des quantités (toutes lignes) pour la commande.
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+             arguments:
+               min_value: 0
+      - name: total_distinct_products
+        description: Nombre de produits distincts dans la commande.
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+             arguments:
+               min_value: 0
+      - name: avg_discount
+        description: Remise moyenne (moyenne simple des discounts lignes).
+        tests:
+          - dbt_utils.accepted_range:
+             arguments:
+               min_value: 0
+               max_value: 1
+
+  - name: int_local_bike__customer_summary
+    description: >
+      Résumé client (1 ligne = 1 client) avec métriques de valeur et de fréquence d'achat.
+      Utilisé par les marts de customer value et segmentation.
+    columns:
+      - name: customer_id
+        description: Identifiant unique client.
+        tests: [not_null, unique]
+      - name: customer_city
+        description: Ville du client.
+      - name: customer_state
+        description: État du client.
+      - name: total_orders
+        description: Nombre total de commandes du client.
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+             arguments:
+               min_value: 0
+      - name: total_amount_spent
+        description: Dépense totale (CA cumulé) du client.
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+             arguments:
+               min_value: 0
+      - name: total_items
+        description: Nombre total d'articles achetés.
+        tests:
+          - dbt_utils.accepted_range:
+             arguments:
+               min_value: 0
+      - name: total_distinct_products
+        description: Nombre total de produits distincts achetés.
+        tests:
+          - dbt_utils.accepted_range:
+             arguments:
+               min_value: 0
+      - name: first_order_date
+        description: Date de première commande.
+      - name: last_order_date
+        description: Date de dernière commande.
+
+  - name: int_local_bike__store_product_sales
+    description: >
+      Ventes par couple (magasin, produit) (1 ligne = 1 store_id x 1 product_id).
+      Sert aux analyses d'assortiment, best-sellers locaux et comparaison avec le stock.
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+         arguments:
+           combination_of_columns: [store_id, product_id]
+    columns:
+      - name: store_id
+        description: Identifiant magasin.
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('bronze_stores')
+                field: store_id
+      - name: product_id
+        description: Identifiant produit.
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('bronze_products')
+                field: product_id
+      - name: units_sold
+        description: Quantité totale vendue.
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+             arguments:
+              min_value: 0
+      - name: revenue
+        description: CA total sur le couple magasin-produit.
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+             arguments:
+               min_value: 0
+
+  - name: int_local_bike__stock_vs_sales
+    description: >
+      Comparaison stock vs ventes par couple (magasin, produit) (1 ligne = 1 store_id x 1 product_id).
+      Permet de détecter ruptures (stock=0 avec ventes) ou absence de ventes.
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [store_id, product_id]
+    columns:
+      - name: store_id
+        description: Identifiant magasin.
+        tests: [not_null]
+      - name: product_id
+        description: Identifiant produit.
+        tests: [not_null]
+      - name: stock_quantity
+        description: Stock actuel disponible.
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+             arguments:
+               min_value: 0
+      - name: units_sold
+        description: Quantité vendue observée.
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+             arguments:
+               min_value: 0
+      - name: revenue
+        description: CA des ventes observées.
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+             arguments:
+               min_value: 0
+      - name: stock_sales_status
+        description: Statut synthétique (OUT_OF_STOCK / NO_SALES / OK).
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['OUT_OF_STOCK', 'NO_SALES', 'OK']
+
+  - name: int_local_bike__product_performance
+    description: >
+      Performance produit globale (1 ligne = 1 produit) sur la période du dataset.
+      Sert au ranking produits et à l'analyse du catalogue.
+    columns:
+      - name: product_id
+        description: Identifiant unique produit.
+        tests:
+          - not_null
+          - unique
+          - relationships:
+              arguments:
+                to: ref('bronze_products')
+                field: product_id
+      - name: total_units
+        description: Total unités vendues.
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+             arguments:
+               min_value: 0
+      - name: total_revenue
+        description: CA total généré par le produit.
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+             arguments:
+               min_value: 0
+
+  - name: int_local_bike__staff_performance
+    description: >
+      Performance vendeurs (1 ligne = 1 staff) avec volumes de commandes et CA.
+      Sert au ranking vendeurs (marts).
+    columns:
+      - name: staff_id
+        description: Identifiant unique vendeur.
+        tests:
+          - not_null
+          - unique
+          - relationships:
+              arguments:
+                to: ref('bronze_staffs')
+                field: staff_id
+      - name: total_orders
+        description: Nombre total de commandes associées au vendeur.
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+             arguments:
+              min_value: 0
+      - name: total_sales
+        description: CA total généré par le vendeur.
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+      - name: avg_order_value
+        description: Panier moyen (total_sales / total_orders).
+        tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
