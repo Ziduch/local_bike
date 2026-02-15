@@ -174,36 +174,41 @@ models:
 
   - name: mrt_local_bike__staff_ranking
     description: >
-      Classement vendeurs (1 ligne = 1 staff) basé sur les ventes.
-      Sert à suivre la performance commerciale individuelle.
+      Classement des vendeurs basé sur le chiffre d'affaires généré.
+      1 ligne = 1 vendeur.
     columns:
       - name: staff_id
         description: Identifiant unique du vendeur.
         tests: [not_null, unique]
+
       - name: total_orders
         description: Nombre total de commandes associées au vendeur.
         tests:
           - dbt_utils.accepted_range:
-             arguments:
-               min_value: 0
+              arguments:
+                min_value: 0
+
       - name: total_sales
-        description: CA total généré par le vendeur.
+        description: Chiffre d'affaires total généré par le vendeur.
         tests:
+          - not_null
           - dbt_utils.accepted_range:
-             arguments:
-               min_value: 0
+              arguments:
+                min_value: 0
+
       - name: avg_order_value
         description: Panier moyen du vendeur (total_sales / total_orders).
         tests:
           - dbt_utils.accepted_range:
-             arguments:
-               min_value: 0
+              arguments:
+                min_value: 0
+
       - name: sales_rank
-        description: Rang du vendeur par CA (1 = meilleur).
+        description: Rang du vendeur par chiffre d'affaires (1 = meilleur).
         tests:
           - dbt_utils.accepted_range:
-             arguments:
-               min_value: 1
+              arguments:
+                min_value: 1
 
   - name: mrt_local_bike__stock_alerts
     description: >
