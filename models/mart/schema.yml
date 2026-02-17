@@ -172,36 +172,46 @@ models:
 
   - name: mrt_local_bike__product_ranking
     description: >
-      Classement produits (1 ligne = 1 produit) basé sur revenus et volumes.
-      Permet d'identifier les best-sellers et les produits à faible performance.
+      Classement produits (1 ligne = 1 produit) basé sur volume vendu et chiffre d'affaires.
+      Enrichi avec le nom produit pour usage BI.
     columns:
       - name: product_id
-        description: Identifiant unique produit.
+        description: Identifiant unique du produit.
         tests: [not_null, unique]
+
+      - name: product_name
+        description: Nom du produit.
+        tests: [not_null]
+
       - name: total_units
-        description: Unités vendues (volume) sur la période couverte par le dataset.
+        description: Total d'unités vendues.
         tests:
+          - not_null
           - dbt_utils.accepted_range:
-             arguments:
-               min_value: 0
+              arguments:
+                min_value: 0
+
       - name: total_revenue
-        description: Chiffre d'affaires généré par le produit.
+        description: Chiffre d'affaires total généré par le produit.
         tests:
+          - not_null
           - dbt_utils.accepted_range:
-             arguments:
-               min_value: 0
+              arguments:
+                min_value: 0
+
       - name: revenue_rank
-        description: Rang du produit par revenu (1 = meilleur).
+        description: Rang par chiffre d'affaires (1 = meilleur).
         tests:
           - dbt_utils.accepted_range:
-             arguments:
-               min_value: 1
+              arguments:
+                min_value: 1
+
       - name: units_rank
-        description: Rang du produit par volume (1 = meilleur).
+        description: Rang par volume (1 = meilleur).
         tests:
           - dbt_utils.accepted_range:
-             arguments:
-               min_value: 1
+              arguments:
+                min_value: 1
 
   - name: mrt_local_bike__staff_ranking
     description: >
