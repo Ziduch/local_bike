@@ -1,15 +1,28 @@
-Welcome to your new dbt project!
+#  Local Bike – Analytics Engineering Project
 
-### Using the starter project
+## Objectif  
+Construire un modèle de données analytique pour analyser les performances commerciales de **Local Bike** (magasins, produits, vendeurs) et produire un tableau de bord décisionnel.
 
-Try running the following commands:
-- dbt run
-- dbt test
+## Architecture  
+- **Staging (Bronze)** : nettoyage et standardisation  
+- **Intermediate (Silver)** : agrégations et logique métier  
+- **Mart (Gold)** : tables finales prêtes pour la BI  
 
+Chaque mart respecte un grain explicite (ex : 1 ligne = 1 jour  1 magasin).
 
-### Resources:
-- Learn more about dbt [in the docs](https://docs.getdbt.com/docs/introduction)
-- Check out [Discourse](https://discourse.getdbt.com/) for commonly asked questions and answers
-- Join the [dbt community](https://getdbt.com/community) to learn from other analytics engineers
-- Find [dbt events](https://events.getdbt.com) near you
-- Check out [the blog](https://blog.getdbt.com/) for the latest news on dbt's development and best practices
+## Qualité des données  
+Tests implémentés :  
+- `not_null`, `unique`  
+- `relationships`  
+- `accepted_range`  
+- `unique_combination_of_columns`  
+
+Les indicateurs calculés (ex : panier moyen) sont documentés et validés.
+
+## Visualisation  
+Dashboard Tableau incluant :  
+- CA journalier et mensuel  
+- Classement des produits  
+- Performance des vendeurs  
+- Suivi des stocks  
+
